@@ -15,4 +15,7 @@ export default defineConfig({
       preset: process.env.VERCEL ? "vercel" : undefined
     },
   },
+  nitro: {
+    preset: process.env.VERCEL ? "vercel" : undefined
+  }
 });
