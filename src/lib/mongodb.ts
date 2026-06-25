@@ -1,7 +1,10 @@
 import { MongoClient, Db, Document } from "mongodb";
 
-const MONGODB_URI =
-  "mongodb+srv://hibaraliyyah12_db_user:Hiba786@cluster0.cdrg2hs.mongodb.net/glowai?retryWrites=true&w=majority";
+const MONGODB_URI = process.env.MONGODB_URI || "";
+
+if (!MONGODB_URI) {
+  console.warn("WARNING: MONGODB_URI is not set in environment variables");
+}
 
 const DB_NAME = "glowai";
 
