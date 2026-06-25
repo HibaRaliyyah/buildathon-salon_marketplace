@@ -27,7 +27,7 @@ interface UserDoc {
 const RegisterSchema = z.object({
   username: z.string().min(3).max(30),
   fullName: z.string().min(2),
-  phone: z.string().min(10),
+  phone: z.string().regex(/^\d{10}$/, "Phone number must be exactly 10 digits"),
   password: z.string().min(6),
 });
 

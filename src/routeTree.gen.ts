@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
-import { Route as SalonsRouteImport } from './routes/salons'
 import { Route as OffersRouteImport } from './routes/offers'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ExploreRouteImport } from './routes/explore'
@@ -19,15 +18,11 @@ import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AiConsultantRouteImport } from './routes/ai-consultant'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SalonsSalonIdRouteImport } from './routes/salons.$salonId'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SalonsRoute = SalonsRouteImport.update({
-  id: '/salons',
-  path: '/salons',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OffersRoute = OffersRouteImport.update({
@@ -70,6 +65,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SalonsSalonIdRoute = SalonsSalonIdRouteImport.update({
+  id: '/salons/$salonId',
+  path: '/salons/$salonId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -80,8 +80,8 @@ export interface FileRoutesByFullPath {
   '/explore': typeof ExploreRoute
   '/login': typeof LoginRoute
   '/offers': typeof OffersRoute
-  '/salons': typeof SalonsRoute
   '/signup': typeof SignupRoute
+  '/salons/$salonId': typeof SalonsSalonIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -92,8 +92,8 @@ export interface FileRoutesByTo {
   '/explore': typeof ExploreRoute
   '/login': typeof LoginRoute
   '/offers': typeof OffersRoute
-  '/salons': typeof SalonsRoute
   '/signup': typeof SignupRoute
+  '/salons/$salonId': typeof SalonsSalonIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -105,8 +105,8 @@ export interface FileRoutesById {
   '/explore': typeof ExploreRoute
   '/login': typeof LoginRoute
   '/offers': typeof OffersRoute
-  '/salons': typeof SalonsRoute
   '/signup': typeof SignupRoute
+  '/salons/$salonId': typeof SalonsSalonIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -119,8 +119,8 @@ export interface FileRouteTypes {
     | '/explore'
     | '/login'
     | '/offers'
-    | '/salons'
     | '/signup'
+    | '/salons/$salonId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -131,8 +131,8 @@ export interface FileRouteTypes {
     | '/explore'
     | '/login'
     | '/offers'
-    | '/salons'
     | '/signup'
+    | '/salons/$salonId'
   id:
     | '__root__'
     | '/'
@@ -143,8 +143,8 @@ export interface FileRouteTypes {
     | '/explore'
     | '/login'
     | '/offers'
-    | '/salons'
     | '/signup'
+    | '/salons/$salonId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -156,8 +156,8 @@ export interface RootRouteChildren {
   ExploreRoute: typeof ExploreRoute
   LoginRoute: typeof LoginRoute
   OffersRoute: typeof OffersRoute
-  SalonsRoute: typeof SalonsRoute
   SignupRoute: typeof SignupRoute
+  SalonsSalonIdRoute: typeof SalonsSalonIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -167,13 +167,6 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/salons': {
-      id: '/salons'
-      path: '/salons'
-      fullPath: '/salons'
-      preLoaderRoute: typeof SalonsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/offers': {
@@ -232,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/salons/$salonId': {
+      id: '/salons/$salonId'
+      path: '/salons/$salonId'
+      fullPath: '/salons/$salonId'
+      preLoaderRoute: typeof SalonsSalonIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -244,8 +244,8 @@ const rootRouteChildren: RootRouteChildren = {
   ExploreRoute: ExploreRoute,
   LoginRoute: LoginRoute,
   OffersRoute: OffersRoute,
-  SalonsRoute: SalonsRoute,
   SignupRoute: SignupRoute,
+  SalonsSalonIdRoute: SalonsSalonIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

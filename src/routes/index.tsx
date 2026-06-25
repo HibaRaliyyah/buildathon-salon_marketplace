@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Camera, MapPin, Search, Sparkles, Star, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { ArrowRight, Camera, MapPin, Search, Sparkles, Star, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import heroPortrait from "@/assets/hero-portrait.jpg";
 import aiConcierge from "@/assets/ai-concierge.jpg";
@@ -8,6 +9,8 @@ import lookKorean from "@/assets/look-korean.jpg";
 import lookGrooming from "@/assets/look-grooming.jpg";
 import lookNails from "@/assets/look-nails.jpg";
 import salonInterior from "@/assets/salon-interior.jpg";
+import lumiereInterior from "@/assets/lumiere-interior.jpg";
+import velvetInterior from "@/assets/velvet-interior.jpg";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -27,27 +30,29 @@ const hotspots = [
 ];
 
 const trending = [
-  { img: lookBridal, title: "Temple Gold Bridal", salon: "The Ritz Salon · Malleshwaram", price: "₹8,500", match: 94, tag: "Bridal Glow" },
-  { img: lookKorean, title: "Glass Hair Bob", salon: "Luna Artistry · Koramangala", price: "₹2,200", match: 88, tag: "K-Beauty" },
-  { img: lookGrooming, title: "Tech-City Fade", salon: "The Old Soul · HSR Layout", price: "₹1,500", match: 91, tag: "Grooming" },
-  { img: lookNails, title: "Lavender Haze Nails", salon: "Gloss Studio · Indiranagar", price: "₹1,800", match: 97, tag: "Nails" },
-  { img: lookBridal, title: "Reception Glam", salon: "Bridal Box · Jayanagar", price: "₹12,000", match: 92, tag: "Bridal" },
+  { id: "maison-bridal", img: lookBridal, title: "Temple Gold Bridal", salon: "Maison Bridal · Malleshwaram", price: "₹8,500", match: 94, tag: "Bridal Glow" },
+  { id: "luna-artistry", img: lookKorean, title: "Glass Hair Bob", salon: "Luna Artistry · Koramangala", price: "₹2,200", match: 88, tag: "K-Beauty" },
+  { id: "the-old-soul", img: lookGrooming, title: "Tech-City Fade", salon: "The Old Soul · HSR Layout", price: "₹1,500", match: 91, tag: "Grooming" },
+  { id: "gloss-studio", img: lookNails, title: "Lavender Haze Nails", salon: "Gloss Studio · Indiranagar", price: "₹1,800", match: 97, tag: "Nails" },
+  { id: "maison-bridal", img: lookBridal, title: "Reception Glam", salon: "Maison Bridal · Jayanagar", price: "₹12,000", match: 92, tag: "Bridal" },
 ];
 
 const salons = [
-  { img: salonInterior, name: "Atelier Rose", area: "Indiranagar", distance: "1.2 km", rating: 4.9, match: 98, price: "₹₹₹", open: true },
-  { img: salonInterior, name: "Lumière Studio", area: "Koramangala", distance: "2.4 km", rating: 4.8, match: 95, price: "₹₹", open: true },
-  { img: salonInterior, name: "Velvet & Co.", area: "Whitefield", distance: "5.1 km", rating: 4.7, match: 89, price: "₹₹₹₹", open: false },
+  { id: "atelier-rose", img: salonInterior, name: "Atelier Rose", area: "Indiranagar", distance: "1.2 km", rating: 4.9, match: 98, price: "₹2,500", open: true },
+  { id: "lumiere-studio", img: lumiereInterior, name: "Lumière Studio", area: "Koramangala", distance: "2.8 km", rating: 4.9, match: 96, price: "₹2,200", open: true },
+  { id: "velvet-co", img: velvetInterior, name: "Velvet & Co.", area: "Whitefield", distance: "4.5 km", rating: 4.8, match: 92, price: "₹4,500", open: false },
 ];
 
 function Home() {
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+
   return (
     <SiteLayout>
       <Hero />
-      <NeighborhoodStrip />
+      <NeighborhoodStrip selectedCity={selectedCity} setSelectedCity={setSelectedCity} />
       <AIAnalysis />
-      <TrendingCarousel />
-      <MarketplaceSection />
+      <TrendingCarousel selectedCity={selectedCity} />
+      <MarketplaceSection selectedCity={selectedCity} />
       <ConsultantSection />
       <BookingFlow />
     </SiteLayout>
@@ -71,21 +76,7 @@ function Hero() {
             and book trusted salons across Bengaluru in minutes.
           </p>
 
-          <form className="glass-panel rounded-2xl p-2 flex flex-col sm:flex-row gap-2 max-w-xl">
-            <div className="flex-1 flex items-center gap-2 px-4">
-              <Search className="size-4 text-text-main/40" />
-              <input
-                className="flex-1 bg-transparent py-3 text-sm outline-none placeholder:text-text-main/40"
-                placeholder="Haircut in Indiranagar, Bridal Makeup in Koramangala…"
-              />
-            </div>
-            <button
-              type="submit"
-              className="bg-text-main text-white rounded-xl px-5 py-3 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-brand-rose-deep transition-colors"
-            >
-              Find My Look <ArrowRight className="size-4" />
-            </button>
-          </form>
+
 
           <div className="flex flex-wrap gap-3">
             <Link
@@ -136,7 +127,7 @@ function Hero() {
   );
 }
 
-function NeighborhoodStrip() {
+function NeighborhoodStrip({ selectedCity, setSelectedCity }: { selectedCity: string | null, setSelectedCity: (city: string | null) => void }) {
   return (
     <section className="px-6 pb-8">
       <div className="max-w-7xl mx-auto">
@@ -154,13 +145,17 @@ function NeighborhoodStrip() {
           </div>
           <div className="flex flex-wrap gap-2">
             {hotspots.map((h) => (
-              <Link
+              <button
                 key={h}
-                to="/explore"
-                className="flex items-center gap-1.5 px-4 py-2 bg-white/60 border border-white/70 rounded-full text-sm font-medium hover:bg-brand-rose hover:text-white transition-colors"
+                onClick={() => setSelectedCity(selectedCity === h ? null : h)}
+                className={`flex items-center gap-1.5 px-4 py-2 border rounded-full text-sm font-medium transition-colors ${
+                  selectedCity === h
+                    ? "bg-brand-rose text-white border-brand-rose"
+                    : "bg-white/60 border-white/70 hover:bg-brand-rose hover:text-white"
+                }`}
               >
                 <MapPin className="size-3.5" /> {h}
-              </Link>
+              </button>
             ))}
           </div>
         </div>
@@ -169,13 +164,95 @@ function NeighborhoodStrip() {
   );
 }
 
+const faceShapes = ["Heart / Oval", "Square / Angular", "Round", "Diamond"];
+const skinTones = ["Warm Honey", "Cool Ivory", "Deep Bronze", "Olive Golden"];
+const hairTextures = ["Wavy 2B", "Curly 3A", "Straight 1C", "Coily 4C"];
+const skinTypes = ["Combination", "Dry", "Oily", "Normal", "Sensitive"];
+
+const getRandom = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
+const getRandomConf = () => Math.floor(Math.random() * (99 - 85 + 1) + 85);
+
 function AIAnalysis() {
-  const traits = [
+  const [traits, setTraits] = useState([
     { label: "Face Shape", value: "Heart / Oval", conf: 98 },
     { label: "Skin Tone", value: "Warm Honey", conf: 94 },
     { label: "Hair Texture", value: "Wavy 2B", conf: 91 },
     { label: "Skin Type", value: "Combination", conf: 89 },
-  ];
+  ]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [hasAnalyzed, setHasAnalyzed] = useState(false);
+
+  const [cameraActive, setCameraActive] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+
+  const openCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      setStream(mediaStream);
+      setCameraActive(true);
+      setCapturedImage(null);
+      setHasAnalyzed(false);
+    } catch (error) {
+      console.error("Error accessing camera:", error);
+      alert("Could not access camera. Please check your browser permissions.");
+    }
+  };
+
+  useEffect(() => {
+    if (cameraActive && stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [cameraActive, stream]);
+
+  const stopCamera = (currentStream: MediaStream | null) => {
+    if (currentStream) {
+      currentStream.getTracks().forEach(track => track.stop());
+    }
+    setCameraActive(false);
+    setStream(null);
+  };
+
+  const captureAndAnalyze = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        // Mirror the canvas context since the video preview is mirrored (-scale-x-100)
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imgDataUrl = canvas.toDataURL("image/jpeg");
+        setCapturedImage(imgDataUrl);
+      }
+    }
+    stopCamera(stream);
+
+    if (isAnalyzing) return;
+    setIsAnalyzing(true);
+    setHasAnalyzed(false);
+
+    let iterations = 0;
+    const interval = setInterval(() => {
+      setTraits([
+        { label: "Face Shape", value: getRandom(faceShapes), conf: getRandomConf() },
+        { label: "Skin Tone", value: getRandom(skinTones), conf: getRandomConf() },
+        { label: "Hair Texture", value: getRandom(hairTextures), conf: getRandomConf() },
+        { label: "Skin Type", value: getRandom(skinTypes), conf: getRandomConf() },
+      ]);
+      iterations++;
+      if (iterations > 15) {
+        clearInterval(interval);
+        setIsAnalyzing(false);
+        setHasAnalyzed(true);
+      }
+    }, 100);
+  };
   return (
     <section className="px-6 py-20">
       <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-12 items-center">
@@ -204,22 +281,52 @@ function AIAnalysis() {
               </div>
             ))}
           </div>
-          <Link
-            to="/ai-consultant"
-            className="inline-flex items-center gap-2 mt-8 px-7 py-3.5 bg-text-main text-white rounded-full text-sm font-semibold hover:bg-brand-rose-deep transition-colors"
-          >
-            Start your analysis <ArrowRight className="size-4" />
-          </Link>
+          {!hasAnalyzed && !cameraActive && !isAnalyzing ? (
+            <button
+              onClick={openCamera}
+              className="inline-flex items-center gap-2 mt-8 px-7 py-3.5 bg-text-main text-white rounded-full text-sm font-semibold hover:bg-brand-rose-deep transition-colors"
+            >
+              <Camera className="size-4" /> Open Camera to Analyze
+            </button>
+          ) : cameraActive && !isAnalyzing ? (
+            <button
+              onClick={captureAndAnalyze}
+              className="inline-flex items-center gap-2 mt-8 px-7 py-3.5 bg-brand-rose-deep text-white rounded-full text-sm font-semibold hover:bg-brand-rose-deep/90 transition-colors shadow-lg shadow-brand-rose-deep/20"
+            >
+              <Sparkles className="size-4" /> Capture & Analyze
+            </button>
+          ) : isAnalyzing ? (
+            <button
+              disabled
+              className="inline-flex items-center gap-2 mt-8 px-7 py-3.5 bg-text-main text-white rounded-full text-sm font-semibold disabled:opacity-70 disabled:cursor-wait"
+            >
+              Analyzing <Loader2 className="size-4 animate-spin" />
+            </button>
+          ) : (
+            <Link
+              to="/ai-consultant"
+              className="inline-flex items-center gap-2 mt-8 px-7 py-3.5 bg-brand-rose-deep text-white rounded-full text-sm font-semibold hover:bg-brand-rose-deep/90 transition-colors shadow-lg shadow-brand-rose-deep/20"
+            >
+              Talk to your AI Consultant <Sparkles className="size-4" />
+            </Link>
+          )}
         </div>
-        <div className="relative aspect-[4/5] rounded-[32px] overflow-hidden border-[10px] border-white/60 shadow-2xl">
-          <img src={heroPortrait} alt="Face analysis sample" loading="lazy" width={1024} height={1280} className="w-full h-full object-cover" />
-          <div className="absolute top-8 left-8 glass-card p-3 rounded-xl">
+        <div className="relative aspect-[4/5] rounded-[32px] overflow-hidden border-[10px] border-white/60 shadow-2xl bg-zinc-900">
+          {cameraActive ? (
+            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover -scale-x-100" />
+          ) : capturedImage ? (
+            <img src={capturedImage} alt="Captured face" className="w-full h-full object-cover" />
+          ) : (
+            <img src={heroPortrait} alt="Face analysis sample" loading="lazy" width={1024} height={1280} className="w-full h-full object-cover" />
+          )}
+          <canvas ref={canvasRef} className="hidden" />
+          <div className="absolute top-8 left-8 glass-card p-3 rounded-xl transition-all duration-300">
             <div className="text-[10px] uppercase tracking-tighter text-brand-rose-deep font-semibold">Face Shape</div>
-            <div className="text-sm font-medium">Heart / Oval</div>
+            <div className="text-sm font-medium">{traits[0].value}</div>
           </div>
-          <div className="absolute bottom-8 right-8 glass-card p-3 rounded-xl">
+          <div className="absolute bottom-8 right-8 glass-card p-3 rounded-xl transition-all duration-300">
             <div className="text-[10px] uppercase tracking-tighter text-brand-rose-deep font-semibold">Undertone</div>
-            <div className="text-sm font-medium">Warm</div>
+            <div className="text-sm font-medium">{traits[1].value}</div>
           </div>
         </div>
       </div>
@@ -227,14 +334,18 @@ function AIAnalysis() {
   );
 }
 
-function TrendingCarousel() {
+function TrendingCarousel({ selectedCity }: { selectedCity: string | null }) {
+  const displayTrending = selectedCity 
+    ? trending.filter(t => t.salon.includes(selectedCity))
+    : trending;
+
   return (
     <section className="py-20">
       <div className="max-w-7xl mx-auto px-6 mb-8 flex items-end justify-between">
         <div>
           <span className="text-[10px] font-bold uppercase tracking-widest text-brand-rose-deep">Personalized</span>
-          <h2 className="text-3xl sm:text-4xl font-serif mt-1">Trending in Bengaluru</h2>
-          <p className="text-text-main/50 text-sm mt-1">Most booked looks in Indiranagar and MG Road this week.</p>
+          <h2 className="text-3xl sm:text-4xl font-serif mt-1">Trending in {selectedCity || "Bengaluru"}</h2>
+          <p className="text-text-main/50 text-sm mt-1">Most booked looks {selectedCity ? `in ${selectedCity}` : "in Indiranagar and MG Road"} this week.</p>
         </div>
         <div className="hidden sm:flex gap-2">
           <button className="size-10 rounded-full border border-text-main/10 grid place-items-center hover:bg-white transition-colors">
@@ -246,45 +357,53 @@ function TrendingCarousel() {
         </div>
       </div>
       <div className="flex gap-6 overflow-x-auto px-6 pb-8 no-scrollbar">
-        {trending.map((c) => (
-          <article key={c.title} className="flex-none w-72 group cursor-pointer">
-            <div className="relative aspect-[3/4] rounded-2xl overflow-hidden mb-4 shadow-sm group-hover:shadow-2xl transition-all">
-              <img src={c.img} alt={c.title} loading="lazy" width={600} height={800} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-              <span className="absolute top-3 left-3 px-2.5 py-1 bg-white/90 backdrop-blur shadow-sm rounded-md text-[10px] font-mono font-bold text-brand-rose-deep">
-                {c.match}% MATCH
-              </span>
-              <span className="absolute bottom-3 left-3 px-2 py-0.5 bg-black/40 backdrop-blur text-white rounded text-[9px] uppercase tracking-widest">
-                {c.tag}
-              </span>
-            </div>
-            <div className="flex justify-between items-start gap-2">
-              <div>
-                <h3 className="font-semibold">{c.title}</h3>
-                <p className="text-xs text-text-main/50 mt-0.5">{c.salon}</p>
+        {displayTrending.length > 0 ? (
+          displayTrending.map((c) => (
+            <Link to="/salons/$salonId" params={{ salonId: c.id }} key={c.title} className="block flex-none w-72 group cursor-pointer">
+              <div className="relative aspect-[3/4] rounded-2xl overflow-hidden mb-4 shadow-sm group-hover:shadow-2xl transition-all">
+                <img src={c.img} alt={c.title} loading="lazy" width={600} height={800} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                <span className="absolute top-3 left-3 px-2.5 py-1 bg-white/90 backdrop-blur shadow-sm rounded-md text-[10px] font-mono font-bold text-brand-rose-deep">
+                  {c.match}% MATCH
+                </span>
+                <span className="absolute bottom-3 left-3 px-2 py-0.5 bg-black/40 backdrop-blur text-white rounded text-[9px] uppercase tracking-widest">
+                  {c.tag}
+                </span>
               </div>
-              <span className="text-sm font-medium font-mono whitespace-nowrap">{c.price}</span>
-            </div>
-          </article>
-        ))}
+              <div className="flex justify-between items-start gap-2">
+                <div>
+                  <h3 className="font-semibold">{c.title}</h3>
+                  <p className="text-xs text-text-main/50 mt-0.5">{c.salon}</p>
+                </div>
+                <span className="text-sm font-medium font-mono whitespace-nowrap">{c.price}</span>
+              </div>
+            </Link>
+          ))
+        ) : (
+          <div className="w-full text-center py-12 text-text-main/50 glass-panel rounded-3xl">
+            No trending looks found in {selectedCity} right now.
+          </div>
+        )}
       </div>
     </section>
   );
 }
 
-function MarketplaceSection() {
+function MarketplaceSection({ selectedCity }: { selectedCity: string | null }) {
+  const displaySalons = selectedCity ? salons.filter(s => s.area === selectedCity) : salons;
+  
   return (
     <section className="px-6 py-16">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-end justify-between mb-8">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-widest text-brand-rose-deep">Marketplace</span>
-            <h2 className="text-3xl sm:text-4xl font-serif mt-1">Verified salons near you</h2>
           </div>
-          <Link to="/salons" className="text-sm font-medium text-text-main/60 hover:text-brand-rose-deep">See all →</Link>
+          <Link to="/explore" className="text-sm font-medium text-text-main/60 hover:text-brand-rose-deep">See all →</Link>
         </div>
         <div className="grid md:grid-cols-3 gap-6">
-          {salons.map((s) => (
-            <article key={s.name} className="glass-card rounded-3xl overflow-hidden hover:shadow-xl transition-shadow group">
+          {displaySalons.length > 0 ? (
+            displaySalons.map((s) => (
+            <Link to="/salons/$salonId" params={{ salonId: s.id }} key={s.name} className="block glass-card rounded-3xl overflow-hidden hover:shadow-xl transition-shadow group">
               <div className="relative aspect-[5/3] overflow-hidden">
                 <img src={s.img} alt={s.name} loading="lazy" width={1200} height={800} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                 <span className="absolute top-3 right-3 px-2.5 py-1 bg-white/90 backdrop-blur rounded-md text-[10px] font-mono font-bold text-brand-rose-deep">
@@ -310,13 +429,17 @@ function MarketplaceSection() {
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-text-main/5">
                   <span className="text-xs text-text-main/50">From <span className="font-mono font-bold text-text-main">{s.price}</span></span>
-                  <Link to="/salons" className="text-xs font-bold uppercase tracking-wider bg-text-main text-white px-3.5 py-2 rounded-full hover:bg-brand-rose-deep transition-colors">
+                  <span className="text-xs font-bold uppercase tracking-wider bg-text-main text-white px-3.5 py-2 rounded-full group-hover:bg-brand-rose-deep transition-colors">
                     Book
-                  </Link>
+                  </span>
                 </div>
               </div>
-            </article>
-          ))}
+            </Link>
+          ))) : (
+            <div className="col-span-3 text-center py-20 text-text-main/60 glass-panel rounded-3xl">
+              No salons found in {selectedCity} yet. Check back later or clear the filter!
+            </div>
+          )}
         </div>
       </div>
     </section>

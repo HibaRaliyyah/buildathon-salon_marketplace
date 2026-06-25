@@ -19,12 +19,12 @@ interface SalonDoc {
 }
 
 const SALON_SEED: Omit<SalonDoc, "_id" | "createdAt">[] = [
-  { name: "Atelier Rose", area: "Indiranagar", distance: "1.2 km", rating: 4.9, match: 98, price: "₹₹₹", open: true, tag: "Hair · Skin", description: "Award-winning hair & skin atelier specializing in editorial cuts, balayage, and Korean glass-skin facials." },
-  { name: "Maison Bridal", area: "Malleshwaram", distance: "3.1 km", rating: 4.9, match: 96, price: "₹₹₹₹", open: true, tag: "Bridal", description: "Bengaluru's premier bridal studio. Royal bridal glow packages, airbrush makeup and mehendi." },
-  { name: "Luna Artistry", area: "Koramangala", distance: "2.4 km", rating: 4.8, match: 95, price: "₹₹", open: true, tag: "K-Beauty", description: "Korean beauty specialists. Glass hair, glass skin, GRWM packages and trending K-beauty looks." },
-  { name: "Velvet & Co.", area: "Whitefield", distance: "5.1 km", rating: 4.7, match: 89, price: "₹₹₹₹", open: false, tag: "Spa", description: "Luxury spa and wellness centre with Ayurvedic treatments, deep tissue massage and facials." },
-  { name: "The Old Soul", area: "HSR Layout", distance: "4.0 km", rating: 4.6, match: 91, price: "₹₹", open: true, tag: "Men's", description: "Classic barbershop meets modern grooming. Fades, beard sculpts and hot towel shaves." },
-  { name: "Gloss Studio", area: "Jayanagar", distance: "2.9 km", rating: 4.8, match: 93, price: "₹₹", open: true, tag: "Nails", description: "Nail art specialists. Gel manicures, nail extensions, nail art and pedicures." },
+  { name: "Atelier Rose", area: "Indiranagar", distance: "1.2 km", rating: 4.9, match: 98, price: "₹2,500", open: true, tag: "Hair · Skin", description: "Award-winning hair & skin atelier specializing in editorial cuts, balayage, and Korean glass-skin facials." },
+  { name: "Maison Bridal", area: "Malleshwaram", distance: "3.1 km", rating: 4.9, match: 96, price: "₹12,000", open: true, tag: "Bridal", description: "Bengaluru's premier bridal studio. Royal bridal glow packages, airbrush makeup and mehendi." },
+  { name: "Luna Artistry", area: "Koramangala", distance: "2.4 km", rating: 4.8, match: 95, price: "₹1,800", open: true, tag: "K-Beauty", description: "Korean beauty specialists. Glass hair, glass skin, GRWM packages and trending K-beauty looks." },
+  { name: "Velvet & Co.", area: "Whitefield", distance: "5.1 km", rating: 4.7, match: 89, price: "₹4,500", open: false, tag: "Spa", description: "Luxury spa and wellness centre with Ayurvedic treatments, deep tissue massage and facials." },
+  { name: "The Old Soul", area: "HSR Layout", distance: "4.0 km", rating: 4.6, match: 91, price: "₹1,200", open: true, tag: "Men's", description: "Classic barbershop meets modern grooming. Fades, beard sculpts and hot towel shaves." },
+  { name: "Gloss Studio", area: "Jayanagar", distance: "2.9 km", rating: 4.8, match: 93, price: "₹1,500", open: true, tag: "Nails", description: "Nail art specialists. Gel manicures, nail extensions, nail art and pedicures." },
 ];
 
 async function seedSalons() {

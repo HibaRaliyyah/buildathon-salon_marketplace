@@ -140,7 +140,7 @@ function DashboardPage() {
                   </div>
                 ))}
                 {displayBookings.length === 0 && (
-                  <p className="text-sm text-text-main/50 text-center py-4">No upcoming bookings. <Link to="/salons" className="text-brand-rose-deep font-semibold">Book now →</Link></p>
+                  <p className="text-sm text-text-main/50 text-center py-4">No upcoming bookings. <Link to="/explore" className="text-brand-rose-deep font-semibold">Book now →</Link></p>
                 )}
               </div>
             </div>
@@ -176,7 +176,7 @@ function DashboardPage() {
             <div className="glass-card rounded-3xl p-6 lg:col-span-3">
               <div className="flex items-center justify-between mb-4">
                 <div className="text-[10px] font-bold uppercase tracking-widest text-brand-rose-deep">Salons near you</div>
-                <Link to="/salons" className="text-xs text-text-main/60">See all</Link>
+                <Link to="/explore" className="text-xs text-text-main/60">See all</Link>
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[

@@ -42,7 +42,7 @@ export function Footer() {
           </div>
           <ul className="space-y-2 text-sm text-text-main/70">
             <li><Link to="/ai-consultant" className="hover:text-brand-rose-deep">AI Consultant</Link></li>
-            <li><Link to="/salons" className="hover:text-brand-rose-deep">Find a Salon</Link></li>
+            <li><Link to="/explore" className="hover:text-brand-rose-deep">Find a Salon</Link></li>
             <li><Link to="/offers" className="hover:text-brand-rose-deep">Offers</Link></li>
             <li><Link to="/about" className="hover:text-brand-rose-deep">About</Link></li>
             <li><Link to="/contact" className="hover:text-brand-rose-deep">Contact</Link></li>

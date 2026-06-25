@@ -27,20 +27,42 @@ const areas = [
 const budgets = ["Under ₹1,000", "₹1,000 – ₹3,000", "₹3,000 – ₹6,000", "Premium"];
 
 interface FormData {
-  // Step 1
   fullName: string;
   username: string;
   phone: string;
   password: string;
-  // Step 2
   skinTone: string;
   hairType: string;
   faceShape: string;
   preferredServices: string[];
-  // Step 3
   locality: string;
-  // Step 4
   budget: string;
+}
+
+/** Validate each step and return an error string, or "" if valid */
+function validateStep(step: number, form: FormData): string {
+  if (step === 1) {
+    if (!form.fullName.trim()) return "Full name is required.";
+    if (!form.username.trim()) return "Username is required.";
+    if (form.username.trim().length < 3) return "Username must be at least 3 characters.";
+    if (!form.phone.trim()) return "Phone number is required.";
+    if (!/^\d{10}$/.test(form.phone.trim())) return "Phone number must be exactly 10 digits.";
+    if (!form.password) return "Password is required.";
+    if (form.password.length < 6) return "Password must be at least 6 characters.";
+  }
+  if (step === 2) {
+    if (!form.skinTone) return "Please select your skin tone.";
+    if (!form.hairType) return "Please select your hair type.";
+    if (!form.faceShape) return "Please select your face shape.";
+    if (form.preferredServices.length === 0) return "Please select at least one preferred service.";
+  }
+  if (step === 3) {
+    if (!form.locality) return "Please select your locality in Bengaluru.";
+  }
+  if (step === 4) {
+    if (!form.budget) return "Please select your beauty budget.";
+  }
+  return "";
 }
 
 function SignupPage() {
@@ -66,10 +88,20 @@ function SignupPage() {
 
   const update = (patch: Partial<FormData>) => setForm((f) => ({ ...f, ...patch }));
 
+  const handleContinue = () => {
+    const err = validateStep(step, form);
+    if (err) {
+      setError(err);
+      return;
+    }
+    setError("");
+    setStep((s) => Math.min(total, s + 1));
+  };
+
   const handleCreate = async () => {
-    if (!form.fullName || !form.username || !form.phone || !form.password) {
-      setError("Please fill in all fields in Step 1.");
-      setStep(1);
+    const err = validateStep(4, form);
+    if (err) {
+      setError(err);
       return;
     }
     setLoading(true);
@@ -83,7 +115,6 @@ function SignupPage() {
           password: form.password,
         },
       });
-      // Save beauty profile
       await saveBeautyProfile({
         data: {
           userId: result.user.id,
@@ -104,6 +135,11 @@ function SignupPage() {
     }
   };
 
+  const handleBack = () => {
+    setError("");
+    setStep((s) => Math.max(1, s - 1));
+  };
+
   return (
     <div className="min-h-screen px-4 py-12 grid place-items-center">
       <div className="w-full max-w-2xl">
@@ -120,22 +156,22 @@ function SignupPage() {
             </div>
           )}
 
-          {step === 1 && <Step1 form={form} update={update} />}
-          {step === 2 && <Step2 form={form} update={update} />}
-          {step === 3 && <Step3 form={form} update={update} />}
-          {step === 4 && <Step4 form={form} update={update} />}
+          {step === 1 && <Step1 form={form} update={update} error={error} />}
+          {step === 2 && <Step2 form={form} update={update} error={error} />}
+          {step === 3 && <Step3 form={form} update={update} error={error} />}
+          {step === 4 && <Step4 form={form} update={update} error={error} />}
 
           <div className="mt-8 flex items-center justify-between">
             <button
               disabled={step === 1}
-              onClick={() => setStep((s) => Math.max(1, s - 1))}
+              onClick={handleBack}
               className="text-sm font-medium text-text-main/60 disabled:opacity-30 flex items-center gap-1"
             >
               <ArrowLeft className="size-4" /> Back
             </button>
             {step < total ? (
               <button
-                onClick={() => setStep((s) => Math.min(total, s + 1))}
+                onClick={handleContinue}
                 className="bg-text-main text-white rounded-full px-6 py-3 text-sm font-semibold flex items-center gap-2 hover:bg-brand-rose-deep transition-colors"
               >
                 Continue <ArrowRight className="size-4" />
@@ -177,56 +213,82 @@ function Progress({ step, total }: { step: number; total: number }) {
   );
 }
 
-function Step1({ form, update }: { form: FormData; update: (p: Partial<FormData>) => void }) {
+function Step1({ form, update, error }: { form: FormData; update: (p: Partial<FormData>) => void; error: string }) {
   return (
     <div className="space-y-4">
       <h2 className="font-serif text-3xl">Create your account</h2>
       <ControlledField
-        label="Full name"
+        label="Full name *"
         placeholder="Riya Sharma"
         value={form.fullName}
         onChange={(v) => update({ fullName: v })}
         id="signup-fullname"
+        required
+        hasError={!!error && !form.fullName.trim()}
       />
       <ControlledField
-        label="Username"
+        label="Username *"
         type="text"
         placeholder="riya_sharma"
         value={form.username}
         onChange={(v) => update({ username: v })}
         id="signup-username"
         autoComplete="username"
+        required
+        hasError={!!error && !form.username.trim()}
       />
       <ControlledField
-        label="Phone number"
+        label="Phone number *"
         type="tel"
-        placeholder="+91 98XXX XXXXX"
+        placeholder="10-digit phone number"
         value={form.phone}
-        onChange={(v) => update({ phone: v })}
+        onChange={(v) => update({ phone: v.replace(/\D/g, '').slice(0, 10) })}
         id="signup-phone"
+        required
+        hasError={!!error && !form.phone.trim()}
       />
       <ControlledField
-        label="Password"
+        label="Password *"
         type="password"
-        placeholder="••••••••"
+        placeholder="Min. 6 characters"
         value={form.password}
         onChange={(v) => update({ password: v })}
         id="signup-password"
         autoComplete="new-password"
+        required
+        hasError={!!error && !form.password}
       />
     </div>
   );
 }
 
-function Step2({ form, update }: { form: FormData; update: (p: Partial<FormData>) => void }) {
+function Step2({ form, update, error }: { form: FormData; update: (p: Partial<FormData>) => void; error: string }) {
   return (
     <div className="space-y-5">
       <h2 className="font-serif text-3xl">Your beauty profile</h2>
-      <ChipGroup label="Skin tone" options={skinTones} selected={[form.skinTone]} onToggle={(o) => update({ skinTone: o })} />
-      <ChipGroup label="Hair type" options={hairTypes} selected={[form.hairType]} onToggle={(o) => update({ hairType: o })} />
-      <ChipGroup label="Face shape" options={faceShapes} selected={[form.faceShape]} onToggle={(o) => update({ faceShape: o })} />
       <ChipGroup
-        label="Preferred services"
+        label="Skin tone *"
+        options={skinTones}
+        selected={[form.skinTone]}
+        onToggle={(o) => update({ skinTone: o })}
+        hasError={!!error && !form.skinTone}
+      />
+      <ChipGroup
+        label="Hair type *"
+        options={hairTypes}
+        selected={[form.hairType]}
+        onToggle={(o) => update({ hairType: o })}
+        hasError={!!error && !form.hairType}
+      />
+      <ChipGroup
+        label="Face shape *"
+        options={faceShapes}
+        selected={[form.faceShape]}
+        onToggle={(o) => update({ faceShape: o })}
+        hasError={!!error && !form.faceShape}
+      />
+      <ChipGroup
+        label="Preferred services * (pick at least one)"
         options={services}
         multi
         selected={form.preferredServices}
@@ -234,35 +296,49 @@ function Step2({ form, update }: { form: FormData; update: (p: Partial<FormData>
           const cur = form.preferredServices;
           update({ preferredServices: cur.includes(o) ? cur.filter((x) => x !== o) : [...cur, o] });
         }}
+        hasError={!!error && form.preferredServices.length === 0}
       />
     </div>
   );
 }
 
-function Step3({ form, update }: { form: FormData; update: (p: Partial<FormData>) => void }) {
+function Step3({ form, update, error }: { form: FormData; update: (p: Partial<FormData>) => void; error: string }) {
   return (
     <div className="space-y-5">
       <h2 className="font-serif text-3xl">Where are you in Bengaluru?</h2>
       <p className="text-sm text-text-main/60">We'll prioritize salons near your preferred locality.</p>
-      <ChipGroup label="Locality" options={areas} selected={[form.locality]} onToggle={(o) => update({ locality: o })} />
+      <ChipGroup
+        label="Locality *"
+        options={areas}
+        selected={[form.locality]}
+        onToggle={(o) => update({ locality: o })}
+        hasError={!!error && !form.locality}
+      />
     </div>
   );
 }
 
-function Step4({ form, update }: { form: FormData; update: (p: Partial<FormData>) => void }) {
+function Step4({ form, update, error }: { form: FormData; update: (p: Partial<FormData>) => void; error: string }) {
   return (
     <div className="space-y-5">
       <h2 className="font-serif text-3xl">Your beauty budget</h2>
+      {!!error && !form.budget && (
+        <p className="text-xs text-red-600 font-medium flex items-center gap-1">
+          <AlertCircle className="size-3" /> Please select a budget option.
+        </p>
+      )}
       <div className="grid sm:grid-cols-2 gap-3">
         {budgets.map((b) => (
           <button
             key={b}
             type="button"
             onClick={() => update({ budget: b })}
-            className={`p-5 rounded-2xl border text-left transition-colors ${
+            className={`p-5 rounded-2xl border text-left transition-all ${
               form.budget === b
-                ? "border-brand-rose-deep bg-brand-rose/10"
-                : "border-text-main/10 bg-white/70 hover:border-brand-rose"
+                ? "border-brand-rose-deep bg-brand-rose/10 ring-2 ring-brand-rose-deep/20"
+                : !!error && !form.budget
+                  ? "border-red-300 bg-white/70 hover:border-brand-rose"
+                  : "border-text-main/10 bg-white/70 hover:border-brand-rose"
             }`}
           >
             <div className="font-mono text-xs text-brand-rose-deep mb-2">BUDGET</div>
@@ -282,6 +358,8 @@ function ControlledField({
   placeholder,
   id,
   autoComplete,
+  required,
+  hasError,
 }: {
   label: string;
   value: string;
@@ -290,18 +368,27 @@ function ControlledField({
   placeholder?: string;
   id?: string;
   autoComplete?: string;
+  required?: boolean;
+  hasError?: boolean;
 }) {
   return (
     <label className="block">
-      <span className="text-[10px] uppercase tracking-widest font-semibold text-text-main/50">{label}</span>
+      <span className={`text-[10px] uppercase tracking-widest font-semibold ${hasError ? "text-red-500" : "text-text-main/50"}`}>
+        {label}
+      </span>
       <input
         type={type}
         placeholder={placeholder}
         id={id}
         autoComplete={autoComplete}
         value={value}
+        required={required}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1.5 w-full bg-white/70 border border-text-main/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-rose focus:bg-white transition-colors"
+        className={`mt-1.5 w-full bg-white/70 border rounded-xl px-4 py-3 text-sm outline-none focus:bg-white transition-colors ${
+          hasError
+            ? "border-red-400 focus:border-red-500 bg-red-50/30"
+            : "border-text-main/10 focus:border-brand-rose"
+        }`}
       />
     </label>
   );
@@ -313,17 +400,21 @@ function ChipGroup({
   multi,
   selected,
   onToggle,
+  hasError,
 }: {
   label: string;
   options: string[];
   multi?: boolean;
   selected: string[];
   onToggle: (o: string) => void;
+  hasError?: boolean;
 }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-widest font-semibold text-text-main/50 mb-2">{label}</div>
-      <div className="flex flex-wrap gap-2">
+      <div className={`text-[10px] uppercase tracking-widest font-semibold mb-2 ${hasError ? "text-red-500" : "text-text-main/50"}`}>
+        {label}
+      </div>
+      <div className={`flex flex-wrap gap-2 p-2 rounded-xl transition-colors ${hasError ? "bg-red-50/40 ring-1 ring-red-300" : ""}`}>
         {options.map((o) => {
           const on = selected.includes(o);
           return (

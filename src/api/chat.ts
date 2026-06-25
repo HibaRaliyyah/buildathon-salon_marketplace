@@ -24,50 +24,83 @@ const SendMessageSchema = z.object({
   userId: z.string().optional(),
   sessionId: z.string(),
   message: z.string().min(1),
+  attachment: z.string().optional(),
 });
 
 const GetHistorySchema = z.object({
   sessionId: z.string(),
 });
 
-function generateAIReply(userMessage: string): string {
-  const msg = userMessage.toLowerCase();
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 
-  if (msg.includes("bridal") || msg.includes("wedding")) {
-    return "For your bridal look, I recommend soft curls and nude makeup that complements Bengaluru's warm lighting. Maison Bridal in Malleshwaram and Atelier Rose in Indiranagar have excellent bridal packages starting from ₹8,000. Shall I check their availability?";
-  }
-  if (msg.includes("hair") && (msg.includes("cut") || msg.includes("haircut"))) {
-    return "Based on your profile, a layered cut or bob would suit your face shape beautifully. Luna Artistry in Koramangala (₹1,200+) and Atelier Rose in Indiranagar (₹2,500+) are top-rated for hair services. Want me to book an appointment?";
-  }
-  if (msg.includes("nail") || msg.includes("manicure")) {
-    return "For nails, Gloss Studio in Jayanagar is our top pick — they specialize in gel manicures, nail art and extensions. Prices start from ₹600. They're open now and have slots available this week!";
-  }
-  if (msg.includes("skin") || msg.includes("facial") || msg.includes("glow")) {
-    return "For glowing skin, I recommend a Korean glass-skin facial at Luna Artistry (₹2,800) or a hydra facial at Velvet & Co. in Whitefield. Based on your combination skin type, these treatments will work wonderfully!";
-  }
-  if (msg.includes("budget") || msg.includes("cheap") || msg.includes("affordable")) {
-    return "For budget-friendly options, The Old Soul (HSR Layout) and Gloss Studio (Jayanagar) offer premium services under ₹1,500. Luna Artistry in Koramangala also has great mid-range packages (₹1,200–₹3,000).";
-  }
-  if (msg.includes("indiranagar")) {
-    return "Near Indiranagar, Atelier Rose is our #1 pick (98% AI match, 4.9⭐). They offer hair, skin, and spa services. Gloss Studio is also nearby for nail services. Both are open now!";
-  }
-  if (msg.includes("koramangala")) {
-    return "In Koramangala, Luna Artistry is your best bet — 95% AI match, specializing in K-Beauty. They offer glass hair, glass skin, and trending Korean beauty looks starting from ₹1,200.";
-  }
-  if (msg.includes("spa") || msg.includes("massage") || msg.includes("relax")) {
-    return "For a relaxing spa experience, Velvet & Co. in Whitefield is exceptional — Ayurvedic treatments, deep tissue massages and luxury facials. Perfect for unwinding after a long week!";
-  }
-  if (msg.includes("selfie") || msg.includes("analysis") || msg.includes("face")) {
-    return "Upload your selfie using the camera button and I'll analyze your face shape, skin tone, and hair texture to give you personalized beauty recommendations tailored just for you! 📸";
-  }
-  if (msg.includes("skin plan")) {
-    return "Based on combination skin types common in Bengaluru's climate, I recommend: Morning — vitamin C serum + SPF 50. Evening — niacinamide + light moisturizer. Weekly — exfoliating facial. Shall I find a skin specialist near you?";
-  }
-  if (msg.includes("hair color")) {
-    return "Hair color trends in Bengaluru right now: balayage honey blonde, chocolate brunette, and burgundy tones. Atelier Rose (Indiranagar) and Luna Artistry (Koramangala) both specialize in color treatments. Budget: ₹3,000–₹8,000.";
+async function generateOpenRouterReply(userMessage: string, attachment?: string, history: ChatMessage[] = []): Promise<string> {
+  const systemPrompt = `You are GlowAI, a personal beauty assistant for Bengaluru. 
+  You help users with beauty recommendations, skin plans, hair styling, and salon bookings in Bengaluru.
+  Keep responses concise, helpful, and friendly. 
+  IMPORTANT: Do NOT use markdown asterisks like **bold** in your responses. Use plain text.
+  IMPORTANT: When recommending a salon, ALWAYS provide a direct booking link using the markdown link format: [Book Now](/salons/salon-id). 
+  The ONLY valid salon-ids are: 
+  - atelier-rose (Atelier Rose, Indiranagar)
+  - luna-artistry (Luna Artistry, Koramangala)
+  - gloss-studio (Gloss Studio, Jayanagar)
+  - velvet-co (Velvet & Co, Whitefield)
+  - the-old-soul (The Old Soul, HSR Layout)
+  - maison-bridal (Maison Bridal, Malleshwaram)
+  
+  Example: "I recommend Luna Artistry for that. [Book Now](/salons/luna-artistry)"
+  
+  If they upload a photo (image attachment), analyze their face shape, skin tone, or hair based on what is visible, and give tailored advice linking to the appropriate salon above.`;
+
+  const messages: any[] = [
+    { role: "system", content: systemPrompt }
+  ];
+
+  // Add history (limit to last 5 messages)
+  for (const msg of history.slice(-5)) {
+    messages.push({
+      role: msg.role === "you" ? "user" : "assistant",
+      content: msg.text
+    });
   }
 
-  return "I'm GlowAI, your personal beauty assistant for Bengaluru! Tell me about the occasion, your budget, or the service you're looking for, and I'll find the perfect salon match for you. 💆‍♀️✨";
+  // Add current message
+  const currentContent: any[] = [{ type: "text", text: userMessage }];
+  if (attachment) {
+    currentContent.push({
+      type: "image_url",
+      image_url: { url: attachment }
+    });
+  }
+
+  messages.push({
+    role: "user",
+    content: currentContent
+  });
+
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-4o-mini",
+        messages: messages
+      })
+    });
+
+    if (!response.ok) {
+      console.error("OpenRouter Error:", await response.text());
+      return "I'm having trouble connecting to my AI brain right now. Please try again.";
+    }
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || "Sorry, I couldn't process that.";
+  } catch (err) {
+    console.error("OpenRouter Error:", err);
+    return "I encountered an error connecting to my AI services.";
+  }
 }
 
 export const sendChatMessage = createServerFn({ method: "POST" })
@@ -76,7 +109,10 @@ export const sendChatMessage = createServerFn({ method: "POST" })
     const db = await getDb();
     const chats = db.collection<ChatDoc>("chats");
 
-    const aiReply = generateAIReply(data.message);
+    const existingChat = await chats.findOne({ sessionId: data.sessionId });
+    const history = existingChat?.messages ?? [];
+
+    const aiReply = await generateOpenRouterReply(data.message, data.attachment, history);
     const now = new Date();
 
     const userMsg: ChatMessage = { role: "you", text: data.message, timestamp: now };

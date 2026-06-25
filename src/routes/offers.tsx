@@ -1,6 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { Sparkles, Tag } from "lucide-react";
+import { toast } from "react-toastify";
+import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/offers")({
   head: () => ({
@@ -20,6 +22,22 @@ const offers = [
 ];
 
 function OffersPage() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const handleRedeem = (code: string) => {
+    if (!user) {
+      toast.error("Please log in to redeem offers.");
+      navigate({ to: "/login" });
+      return;
+    }
+    navigator.clipboard.writeText(code);
+    toast.success(`Promo code ${code} copied to clipboard!`);
+    setTimeout(() => {
+      navigate({ to: "/explore" });
+    }, 1500);
+  };
+
   return (
     <SiteLayout>
       <section className="px-6 pt-10 pb-20">
@@ -40,9 +58,12 @@ function OffersPage() {
                   <span className="bg-white/20 backdrop-blur border border-white/30 rounded-full px-4 py-2 text-xs font-mono flex items-center gap-2">
                     <Tag className="size-3" /> {o.code}
                   </span>
-                  <Link to="/salons" className="bg-white text-text-main rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider">
+                  <button 
+                    onClick={() => handleRedeem(o.code)}
+                    className="bg-white text-text-main rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider hover:bg-white/90 transition-colors"
+                  >
                     Redeem
-                  </Link>
+                  </button>
                 </div>
               </article>
             ))}

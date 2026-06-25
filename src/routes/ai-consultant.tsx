@@ -1,9 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
-import { Mic, Send, Sparkles, Camera, Loader2 } from "lucide-react";
+import { Mic, Send, Sparkles, Camera, Loader2, X } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { sendChatMessage, getChatHistory } from "@/api/chat";
 import { useAuth } from "@/lib/auth-context";
+import { toast } from "react-toastify";
 
 export const Route = createFileRoute("/ai-consultant")({
   head: () => ({
@@ -40,15 +41,26 @@ function getSessionId() {
 
 function ConsultantPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [listening, setListening] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sending, setSending] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [attachment, setAttachment] = useState<string | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Load chat history on mount
   useEffect(() => {
+    if (!user) {
+      navigate({ to: "/login" });
+      return;
+    }
+
     const sessionId = getSessionId();
     getChatHistory({ data: { sessionId } })
       .then((msgs) => setMessages(msgs as ChatMessage[]))
@@ -56,25 +68,60 @@ function ConsultantPage() {
         setMessages([{ role: "ai", text: "Hi, I'm GlowAI. Tell me about your event, mood, or what you'd like to change today." }]),
       )
       .finally(() => setLoadingHistory(false));
-  }, []);
+  }, [user, navigate]);
 
   // Auto-scroll to bottom
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages]);
 
+  // Camera stream
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    if (showCamera) {
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+        .then((s) => {
+          stream = s;
+          if (videoRef.current) {
+            videoRef.current.srcObject = s;
+          }
+        })
+        .catch((err) => {
+          console.error("Camera error:", err);
+          toast.error("Could not access camera. Please check permissions.");
+          setShowCamera(false);
+        });
+    }
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, [showCamera]);
+
   const handleSend = async () => {
+    if (!user) {
+      toast.error("Please log in to chat with the AI Consultant.");
+      navigate({ to: "/login" });
+      return;
+    }
     const text = input.trim();
-    if (!text || sending) return;
+    if ((!text && !attachment) || sending) return;
 
     setInput("");
-    setMessages((prev) => [...prev, { role: "you", text }]);
+    const messageText = attachment ? (text ? `[Image Attached] ${text}` : "Analyze this face.") : text;
+    
+    // Save attachment to send before nullifying it
+    const imageToSend = attachment;
+    
+    setMessages((prev) => [...prev, { role: "you", text: messageText }]);
+    setAttachment(null);
     setSending(true);
 
     try {
       const sessionId = getSessionId();
       const result = await sendChatMessage({
-        data: { userId: user?.id, sessionId, message: text },
+        data: { userId: user?.id, sessionId, message: messageText, attachment: imageToSend ?? undefined },
       });
       setMessages((prev) => [...prev, { role: "ai", text: result.aiMsg.text }]);
     } catch {
@@ -84,11 +131,109 @@ function ConsultantPage() {
     }
   };
 
+  const toggleListening = () => {
+    if (!user) {
+      toast.error("Please log in to use voice features.");
+      navigate({ to: "/login" });
+      return;
+    }
+
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      toast.error("Speech recognition is not supported in this browser.");
+      return;
+    }
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+    
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    
+    // Save current input to append to it
+    const currentInput = input;
+
+    recognition.onstart = () => setListening(true);
+    
+    recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results)
+        .map((result: any) => result[0].transcript)
+        .join("");
+      
+      setInput((currentInput ? currentInput + " " : "") + transcript);
+    };
+    
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error", event.error);
+      setListening(false);
+    };
+    
+    recognition.onend = () => {
+      setListening(false);
+    };
+    
+    recognition.start();
+  };
+
+  const handleCameraClick = () => {
+    if (!user) {
+      toast.error("Please log in to use the AI camera.");
+      navigate({ to: "/login" });
+      return;
+    }
+    setShowCamera(true);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      
+      // Scale down heavily to ensure payload is small enough for AI API limits
+      const MAX_WIDTH = 512;
+      const scale = Math.min(MAX_WIDTH / video.videoWidth, 1);
+      
+      canvas.width = video.videoWidth * scale;
+      canvas.height = video.videoHeight * scale;
+      
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.5); // lower quality for smaller size
+        setAttachment(dataUrl);
+        setShowCamera(false);
+      }
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const parseMessageText = (text: string) => {
+    // If text is undefined or empty for some reason
+    if (!text) return null;
+    
+    const parts = text.split(/(\[.*?\]\(.*?\))/g);
+    return parts.map((part, i) => {
+      const match = part.match(/\[(.*?)\]\((.*?)\)/);
+      if (match) {
+        return (
+          <Link key={i} to={match[2] as any} className="text-brand-rose underline font-bold hover:text-brand-rose-deep transition-colors">
+            {match[1]}
+          </Link>
+        );
+      }
+      return <span key={i}>{part.replace(/\*\*/g, '').replace(/\*/g, '')}</span>;
+    });
   };
 
   const handleVoiceExample = (example: string) => {
@@ -125,13 +270,13 @@ function ConsultantPage() {
                   messages.map((m, i) => (
                     <div key={i} className={`flex ${m.role === "you" ? "justify-end" : "justify-start"}`}>
                       <div
-                        className={`max-w-[80%] p-4 rounded-2xl text-sm ${
+                        className={`max-w-[80%] p-4 rounded-2xl text-sm whitespace-pre-wrap ${
                           m.role === "you"
                             ? "bg-text-main text-white rounded-tr-sm"
                             : "bg-white border border-text-main/5 rounded-tl-sm"
                         }`}
                       >
-                        {m.text}
+                        {parseMessageText(m.text)}
                       </div>
                     </div>
                   ))
@@ -158,16 +303,33 @@ function ConsultantPage() {
                     ))}
                   </div>
                 )}
+                {attachment && (
+                  <div className="mb-3 px-4 relative inline-block">
+                    <div className="relative size-16 rounded-xl overflow-hidden border-2 border-brand-rose">
+                      <img src={attachment} alt="Attachment preview" className="w-full h-full object-cover" />
+                      <button 
+                        onClick={() => setAttachment(null)}
+                        className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 hover:bg-black"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
-                  <button className="size-11 rounded-full bg-white border border-text-main/10 grid place-items-center hover:bg-brand-rose hover:text-white transition-colors" title="Upload selfie">
+                  <button 
+                    onClick={handleCameraClick}
+                    className="size-11 shrink-0 rounded-full bg-white border border-text-main/10 grid place-items-center hover:bg-brand-rose hover:text-white transition-colors" 
+                    title="Open Camera"
+                  >
                     <Camera className="size-5" />
                   </button>
                   <button
-                    onClick={() => setListening((l) => !l)}
-                    className={`size-11 rounded-full grid place-items-center transition-colors ${
-                      listening ? "bg-brand-rose-deep text-white" : "bg-white border border-text-main/10 hover:bg-brand-rose hover:text-white"
+                    onClick={toggleListening}
+                    className={`size-11 shrink-0 rounded-full grid place-items-center transition-colors ${
+                      listening ? "bg-brand-rose-deep text-white shadow-[0_0_15px_rgba(219,39,119,0.5)]" : "bg-white border border-text-main/10 hover:bg-brand-rose hover:text-white"
                     }`}
-                    title="Voice"
+                    title={listening ? "Stop Voice" : "Start Voice"}
                   >
                     <Mic className="size-5" />
                   </button>
@@ -181,8 +343,8 @@ function ConsultantPage() {
                   />
                   <button
                     onClick={handleSend}
-                    disabled={sending || !input.trim()}
-                    className="size-11 rounded-full bg-text-main text-white grid place-items-center hover:bg-brand-rose-deep transition-colors disabled:opacity-50"
+                    disabled={sending || (!input.trim() && !attachment)}
+                    className="size-11 shrink-0 rounded-full bg-text-main text-white grid place-items-center hover:bg-brand-rose-deep transition-colors disabled:opacity-50"
                     id="chat-send"
                   >
                     <Send className="size-4" />
@@ -226,6 +388,38 @@ function ConsultantPage() {
           </div>
         </div>
       </section>
+
+      {/* Live Camera Modal */}
+      {showCamera && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-4 max-w-lg w-full flex flex-col items-center">
+            <div className="w-full flex justify-between items-center mb-4 px-2">
+              <h3 className="font-serif text-xl">Capture Photo</h3>
+              <button onClick={() => setShowCamera(false)} className="p-2 hover:bg-black/5 rounded-full transition-colors">
+                <X className="size-5" />
+              </button>
+            </div>
+            
+            <div className="relative w-full aspect-[3/4] sm:aspect-video bg-black rounded-2xl overflow-hidden mb-6">
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                muted 
+                className="absolute inset-0 w-full h-full object-cover scale-x-[-1]"
+              />
+            </div>
+            
+            <button 
+              onClick={capturePhoto}
+              className="bg-brand-rose-deep text-white rounded-full px-8 py-4 font-bold flex items-center gap-2 shadow-lg shadow-brand-rose/30 hover:scale-105 transition-transform"
+            >
+              <Camera className="size-5" /> Capture
+            </button>
+            <canvas ref={canvasRef} className="hidden" />
+          </div>
+        </div>
+      )}
     </SiteLayout>
   );
 }
