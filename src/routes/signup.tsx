@@ -1,6 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowRight, ArrowLeft, Check } from "lucide-react";
+import { ArrowRight, ArrowLeft, Check, Loader2, AlertCircle } from "lucide-react";
+import { registerUser } from "@/api/auth";
+import { saveBeautyProfile } from "@/api/profile";
+import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
@@ -23,9 +26,83 @@ const areas = [
 ];
 const budgets = ["Under ₹1,000", "₹1,000 – ₹3,000", "₹3,000 – ₹6,000", "Premium"];
 
+interface FormData {
+  // Step 1
+  fullName: string;
+  username: string;
+  phone: string;
+  password: string;
+  // Step 2
+  skinTone: string;
+  hairType: string;
+  faceShape: string;
+  preferredServices: string[];
+  // Step 3
+  locality: string;
+  // Step 4
+  budget: string;
+}
+
 function SignupPage() {
+  const navigate = useNavigate();
+  const { login } = useAuth();
   const [step, setStep] = useState(1);
   const total = 4;
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const [form, setForm] = useState<FormData>({
+    fullName: "",
+    username: "",
+    phone: "",
+    password: "",
+    skinTone: "",
+    hairType: "",
+    faceShape: "",
+    preferredServices: [],
+    locality: "",
+    budget: "",
+  });
+
+  const update = (patch: Partial<FormData>) => setForm((f) => ({ ...f, ...patch }));
+
+  const handleCreate = async () => {
+    if (!form.fullName || !form.username || !form.phone || !form.password) {
+      setError("Please fill in all fields in Step 1.");
+      setStep(1);
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const result = await registerUser({
+        data: {
+          username: form.username.trim(),
+          fullName: form.fullName.trim(),
+          phone: form.phone.trim(),
+          password: form.password,
+        },
+      });
+      // Save beauty profile
+      await saveBeautyProfile({
+        data: {
+          userId: result.user.id,
+          skinTone: form.skinTone,
+          hairType: form.hairType,
+          faceShape: form.faceShape,
+          preferredServices: form.preferredServices,
+          locality: form.locality,
+          budget: form.budget,
+        },
+      });
+      login(result.token, result.user);
+      await navigate({ to: "/dashboard" });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Registration failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen px-4 py-12 grid place-items-center">
@@ -36,10 +113,17 @@ function SignupPage() {
         <div className="glass-panel rounded-3xl p-8 sm:p-10">
           <Progress step={step} total={total} />
 
-          {step === 1 && <Step1 />}
-          {step === 2 && <Step2 />}
-          {step === 3 && <Step3 />}
-          {step === 4 && <Step4 />}
+          {error && (
+            <div className="mb-4 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+              <AlertCircle className="size-4 shrink-0" />
+              {error}
+            </div>
+          )}
+
+          {step === 1 && <Step1 form={form} update={update} />}
+          {step === 2 && <Step2 form={form} update={update} />}
+          {step === 3 && <Step3 form={form} update={update} />}
+          {step === 4 && <Step4 form={form} update={update} />}
 
           <div className="mt-8 flex items-center justify-between">
             <button
@@ -57,8 +141,12 @@ function SignupPage() {
                 Continue <ArrowRight className="size-4" />
               </button>
             ) : (
-              <button className="bg-brand-rose-deep text-white rounded-full px-6 py-3 text-sm font-semibold flex items-center gap-2 hover:bg-text-main transition-colors">
-                Create account <Check className="size-4" />
+              <button
+                onClick={handleCreate}
+                disabled={loading}
+                className="bg-brand-rose-deep text-white rounded-full px-6 py-3 text-sm font-semibold flex items-center gap-2 hover:bg-text-main transition-colors disabled:opacity-60"
+              >
+                {loading ? <><Loader2 className="size-4 animate-spin" /> Creating…</> : <>Create account <Check className="size-4" /></>}
               </button>
             )}
           </div>
@@ -89,79 +177,149 @@ function Progress({ step, total }: { step: number; total: number }) {
   );
 }
 
-function Step1() {
+function Step1({ form, update }: { form: FormData; update: (p: Partial<FormData>) => void }) {
   return (
     <div className="space-y-4">
       <h2 className="font-serif text-3xl">Create your account</h2>
-      <Field label="Full name" placeholder="Riya Sharma" />
-      <Field label="Email" type="email" placeholder="riya@bengaluru.in" />
-      <Field label="Phone number" type="tel" placeholder="+91 98XXX XXXXX" />
-      <Field label="Password" type="password" placeholder="••••••••" />
+      <ControlledField
+        label="Full name"
+        placeholder="Riya Sharma"
+        value={form.fullName}
+        onChange={(v) => update({ fullName: v })}
+        id="signup-fullname"
+      />
+      <ControlledField
+        label="Username"
+        type="text"
+        placeholder="riya_sharma"
+        value={form.username}
+        onChange={(v) => update({ username: v })}
+        id="signup-username"
+        autoComplete="username"
+      />
+      <ControlledField
+        label="Phone number"
+        type="tel"
+        placeholder="+91 98XXX XXXXX"
+        value={form.phone}
+        onChange={(v) => update({ phone: v })}
+        id="signup-phone"
+      />
+      <ControlledField
+        label="Password"
+        type="password"
+        placeholder="••••••••"
+        value={form.password}
+        onChange={(v) => update({ password: v })}
+        id="signup-password"
+        autoComplete="new-password"
+      />
     </div>
   );
 }
 
-function Step2() {
+function Step2({ form, update }: { form: FormData; update: (p: Partial<FormData>) => void }) {
   return (
     <div className="space-y-5">
       <h2 className="font-serif text-3xl">Your beauty profile</h2>
-      <ChipGroup label="Skin tone" options={skinTones} />
-      <ChipGroup label="Hair type" options={hairTypes} />
-      <ChipGroup label="Face shape" options={faceShapes} />
-      <ChipGroup label="Preferred services" options={services} multi />
+      <ChipGroup label="Skin tone" options={skinTones} selected={[form.skinTone]} onToggle={(o) => update({ skinTone: o })} />
+      <ChipGroup label="Hair type" options={hairTypes} selected={[form.hairType]} onToggle={(o) => update({ hairType: o })} />
+      <ChipGroup label="Face shape" options={faceShapes} selected={[form.faceShape]} onToggle={(o) => update({ faceShape: o })} />
+      <ChipGroup
+        label="Preferred services"
+        options={services}
+        multi
+        selected={form.preferredServices}
+        onToggle={(o) => {
+          const cur = form.preferredServices;
+          update({ preferredServices: cur.includes(o) ? cur.filter((x) => x !== o) : [...cur, o] });
+        }}
+      />
     </div>
   );
 }
 
-function Step3() {
+function Step3({ form, update }: { form: FormData; update: (p: Partial<FormData>) => void }) {
   return (
     <div className="space-y-5">
       <h2 className="font-serif text-3xl">Where are you in Bengaluru?</h2>
       <p className="text-sm text-text-main/60">We'll prioritize salons near your preferred locality.</p>
-      <ChipGroup label="Locality" options={areas} />
+      <ChipGroup label="Locality" options={areas} selected={[form.locality]} onToggle={(o) => update({ locality: o })} />
     </div>
   );
 }
 
-function Step4() {
+function Step4({ form, update }: { form: FormData; update: (p: Partial<FormData>) => void }) {
   return (
     <div className="space-y-5">
       <h2 className="font-serif text-3xl">Your beauty budget</h2>
       <div className="grid sm:grid-cols-2 gap-3">
         {budgets.map((b) => (
-          <label key={b} className="cursor-pointer">
-            <input type="radio" name="budget" className="peer sr-only" />
-            <div className="p-5 rounded-2xl border border-text-main/10 bg-white/70 peer-checked:border-brand-rose-deep peer-checked:bg-brand-rose/10 transition-colors">
-              <div className="font-mono text-xs text-brand-rose-deep mb-2">BUDGET</div>
-              <div className="font-serif text-xl">{b}</div>
-            </div>
-          </label>
+          <button
+            key={b}
+            type="button"
+            onClick={() => update({ budget: b })}
+            className={`p-5 rounded-2xl border text-left transition-colors ${
+              form.budget === b
+                ? "border-brand-rose-deep bg-brand-rose/10"
+                : "border-text-main/10 bg-white/70 hover:border-brand-rose"
+            }`}
+          >
+            <div className="font-mono text-xs text-brand-rose-deep mb-2">BUDGET</div>
+            <div className="font-serif text-xl">{b}</div>
+          </button>
         ))}
       </div>
     </div>
   );
 }
 
-function Field({ label, ...rest }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
+function ControlledField({
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+  id,
+  autoComplete,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  placeholder?: string;
+  id?: string;
+  autoComplete?: string;
+}) {
   return (
     <label className="block">
       <span className="text-[10px] uppercase tracking-widest font-semibold text-text-main/50">{label}</span>
       <input
-        {...rest}
+        type={type}
+        placeholder={placeholder}
+        id={id}
+        autoComplete={autoComplete}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
         className="mt-1.5 w-full bg-white/70 border border-text-main/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-rose focus:bg-white transition-colors"
       />
     </label>
   );
 }
 
-function ChipGroup({ label, options, multi }: { label: string; options: string[]; multi?: boolean }) {
-  const [selected, setSelected] = useState<string[]>([]);
-  const toggle = (o: string) => {
-    setSelected((cur) => {
-      if (multi) return cur.includes(o) ? cur.filter((x) => x !== o) : [...cur, o];
-      return [o];
-    });
-  };
+function ChipGroup({
+  label,
+  options,
+  multi,
+  selected,
+  onToggle,
+}: {
+  label: string;
+  options: string[];
+  multi?: boolean;
+  selected: string[];
+  onToggle: (o: string) => void;
+}) {
   return (
     <div>
       <div className="text-[10px] uppercase tracking-widest font-semibold text-text-main/50 mb-2">{label}</div>
@@ -172,7 +330,7 @@ function ChipGroup({ label, options, multi }: { label: string; options: string[]
             <button
               type="button"
               key={o}
-              onClick={() => toggle(o)}
+              onClick={() => onToggle(o)}
               className={`px-4 py-2 rounded-full text-sm border transition-colors ${
                 on
                   ? "bg-brand-rose-deep text-white border-brand-rose-deep"

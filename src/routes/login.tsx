@@ -1,5 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Sparkles } from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import { Sparkles, Loader2, AlertCircle } from "lucide-react";
+import { loginUser } from "@/api/auth";
+import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -12,6 +15,34 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
+  const navigate = useNavigate();
+  const { login } = useAuth();
+
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim() || !password) {
+      setError("Please fill in all fields.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const result = await loginUser({ data: { username: username.trim(), password } });
+      login(result.token, result.user);
+      await navigate({ to: "/dashboard" });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Login failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen grid md:grid-cols-2">
       <div className="relative hidden md:flex flex-col justify-between p-12 bg-gradient-to-br from-brand-rose via-brand-rose-deep to-brand-lavender text-white overflow-hidden">
@@ -33,31 +64,52 @@ function LoginPage() {
             <p className="text-sm text-text-main/60 mt-1">Welcome back. Let's find your glow.</p>
           </div>
 
-          <form className="space-y-4">
-            <Field label="Email" type="email" placeholder="you@bengaluru.in" />
-            <Field label="Password" type="password" placeholder="••••••••" />
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+              <AlertCircle className="size-4 shrink-0" />
+              {error}
+            </div>
+          )}
+
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            <Field
+              label="Username"
+              type="text"
+              placeholder="your_username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
+              id="login-username"
+            />
+            <Field
+              label="Password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              id="login-password"
+            />
             <div className="flex items-center justify-between text-xs">
-              <label className="flex items-center gap-2 text-text-main/70">
-                <input type="checkbox" className="accent-brand-rose-deep" /> Remember me
+              <label className="flex items-center gap-2 text-text-main/70 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="accent-brand-rose-deep"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                />
+                Remember me
               </label>
               <a href="#" className="text-brand-rose-deep font-medium hover:underline">Forgot password?</a>
             </div>
-            <button className="w-full bg-text-main text-white rounded-full py-3.5 text-sm font-semibold hover:bg-brand-rose-deep transition-colors">
-              Login
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-text-main text-white rounded-full py-3.5 text-sm font-semibold hover:bg-brand-rose-deep transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {loading ? <><Loader2 className="size-4 animate-spin" /> Signing in…</> : "Login"}
             </button>
           </form>
-
-          <div className="flex items-center gap-3 text-[10px] uppercase tracking-widest text-text-main/40">
-            <div className="flex-1 h-px bg-text-main/10" /> Or continue with <div className="flex-1 h-px bg-text-main/10" />
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            {["Google", "Apple", "Facebook"].map((p) => (
-              <button key={p} className="py-2.5 bg-white/70 border border-text-main/10 rounded-full text-xs font-medium hover:bg-white transition-colors">
-                {p}
-              </button>
-            ))}
-          </div>
 
           <p className="text-center text-sm text-text-main/60">
             New to GlowAI? <Link to="/signup" className="text-brand-rose-deep font-semibold">Create account</Link>

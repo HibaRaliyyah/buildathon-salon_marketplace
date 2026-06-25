@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Mic, Send, Sparkles, Camera } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Mic, Send, Sparkles, Camera, Loader2 } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
+import { sendChatMessage, getChatHistory } from "@/api/chat";
+import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/ai-consultant")({
   head: () => ({
@@ -13,11 +15,10 @@ export const Route = createFileRoute("/ai-consultant")({
   component: ConsultantPage,
 });
 
-const seed = [
-  { role: "ai", text: "Hi, I'm GlowAI. Tell me about your event, mood, or what you'd like to change today." },
-  { role: "you", text: "I have a wedding in Bengaluru next weekend with a budget of ₹3,000." },
-  { role: "ai", text: "Based on your heart face shape, I recommend soft curls with nude makeup. Here are the highest-rated salons near Koramangala and Indiranagar that match your budget — shall I check availability?" },
-];
+interface ChatMessage {
+  role: string;
+  text: string;
+}
 
 const voiceExamples = [
   "Find salons near Indiranagar",
@@ -27,8 +28,73 @@ const voiceExamples = [
   "Best salons in Koramangala",
 ];
 
+function getSessionId() {
+  if (typeof window === "undefined") return "server-session";
+  let sid = sessionStorage.getItem("glowai_chat_session");
+  if (!sid) {
+    sid = `session_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    sessionStorage.setItem("glowai_chat_session", sid);
+  }
+  return sid;
+}
+
 function ConsultantPage() {
+  const { user } = useAuth();
   const [listening, setListening] = useState(false);
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [sending, setSending] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Load chat history on mount
+  useEffect(() => {
+    const sessionId = getSessionId();
+    getChatHistory({ data: { sessionId } })
+      .then((msgs) => setMessages(msgs as ChatMessage[]))
+      .catch(() =>
+        setMessages([{ role: "ai", text: "Hi, I'm GlowAI. Tell me about your event, mood, or what you'd like to change today." }]),
+      )
+      .finally(() => setLoadingHistory(false));
+  }, []);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSend = async () => {
+    const text = input.trim();
+    if (!text || sending) return;
+
+    setInput("");
+    setMessages((prev) => [...prev, { role: "you", text }]);
+    setSending(true);
+
+    try {
+      const sessionId = getSessionId();
+      const result = await sendChatMessage({
+        data: { userId: user?.id, sessionId, message: text },
+      });
+      setMessages((prev) => [...prev, { role: "ai", text: result.aiMsg.text }]);
+    } catch {
+      setMessages((prev) => [...prev, { role: "ai", text: "Sorry, I'm having trouble connecting right now. Please try again." }]);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleVoiceExample = (example: string) => {
+    setInput(example);
+  };
+
   return (
     <SiteLayout>
       <section className="px-6 pt-10 pb-16">
@@ -50,20 +116,34 @@ function ConsultantPage() {
                 </div>
               </div>
 
-              <div className="flex-1 p-6 space-y-4 overflow-y-auto">
-                {seed.map((m, i) => (
-                  <div key={i} className={`flex ${m.role === "you" ? "justify-end" : "justify-start"}`}>
-                    <div
-                      className={`max-w-[80%] p-4 rounded-2xl text-sm ${
-                        m.role === "you"
-                          ? "bg-text-main text-white rounded-tr-sm"
-                          : "bg-white border border-text-main/5 rounded-tl-sm"
-                      }`}
-                    >
-                      {m.text}
+              <div className="flex-1 p-6 space-y-4 overflow-y-auto max-h-[420px]">
+                {loadingHistory ? (
+                  <div className="flex items-center justify-center h-full">
+                    <Loader2 className="size-6 animate-spin text-brand-rose-deep" />
+                  </div>
+                ) : (
+                  messages.map((m, i) => (
+                    <div key={i} className={`flex ${m.role === "you" ? "justify-end" : "justify-start"}`}>
+                      <div
+                        className={`max-w-[80%] p-4 rounded-2xl text-sm ${
+                          m.role === "you"
+                            ? "bg-text-main text-white rounded-tr-sm"
+                            : "bg-white border border-text-main/5 rounded-tl-sm"
+                        }`}
+                      >
+                        {m.text}
+                      </div>
+                    </div>
+                  ))
+                )}
+                {sending && (
+                  <div className="flex justify-start">
+                    <div className="bg-white border border-text-main/5 rounded-2xl rounded-tl-sm p-4 text-sm text-text-main/50 flex items-center gap-2">
+                      <Loader2 className="size-3 animate-spin" /> GlowAI is thinking…
                     </div>
                   </div>
-                ))}
+                )}
+                <div ref={bottomRef} />
               </div>
 
               <div className="p-4 border-t border-text-main/5">
@@ -94,8 +174,17 @@ function ConsultantPage() {
                   <input
                     placeholder="Ask about looks, salons, or budgets…"
                     className="flex-1 bg-white border border-text-main/10 rounded-full px-5 py-3 text-sm outline-none focus:border-brand-rose"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    id="chat-input"
                   />
-                  <button className="size-11 rounded-full bg-text-main text-white grid place-items-center hover:bg-brand-rose-deep transition-colors">
+                  <button
+                    onClick={handleSend}
+                    disabled={sending || !input.trim()}
+                    className="size-11 rounded-full bg-text-main text-white grid place-items-center hover:bg-brand-rose-deep transition-colors disabled:opacity-50"
+                    id="chat-send"
+                  >
                     <Send className="size-4" />
                   </button>
                 </div>
@@ -105,11 +194,16 @@ function ConsultantPage() {
             {/* Voice suggestions */}
             <aside className="space-y-4">
               <div className="glass-card rounded-3xl p-5">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-brand-rose-deep mb-3">Try saying</div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-brand-rose-deep mb-3">Try asking</div>
                 <ul className="space-y-2">
                   {voiceExamples.map((v) => (
-                    <li key={v} className="text-sm bg-white/70 rounded-xl px-3 py-2 border border-text-main/5">
-                      "{v}"
+                    <li key={v}>
+                      <button
+                        onClick={() => handleVoiceExample(v)}
+                        className="w-full text-left text-sm bg-white/70 rounded-xl px-3 py-2 border border-text-main/5 hover:border-brand-rose transition-colors"
+                      >
+                        "{v}"
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -118,7 +212,11 @@ function ConsultantPage() {
                 <div className="text-[10px] font-bold uppercase tracking-widest text-brand-rose-deep mb-3">Quick actions</div>
                 <div className="grid grid-cols-2 gap-2">
                   {["Selfie Analysis", "Bridal Looks", "Skin Plan", "Hair Color"].map((t) => (
-                    <button key={t} className="text-xs font-medium bg-white/70 rounded-xl py-3 border border-text-main/5 hover:border-brand-rose">
+                    <button
+                      key={t}
+                      onClick={() => handleVoiceExample(t)}
+                      className="text-xs font-medium bg-white/70 rounded-xl py-3 border border-text-main/5 hover:border-brand-rose transition-colors"
+                    >
                       {t}
                     </button>
                   ))}

@@ -1,10 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { SiteLayout } from "@/components/site/SiteLayout";
-import { Calendar, Gift, Sparkles, MapPin, Star } from "lucide-react";
+import { Calendar, Gift, Sparkles, MapPin, Star, Loader2 } from "lucide-react";
 import heroPortrait from "@/assets/hero-portrait.jpg";
 import salonInterior from "@/assets/salon-interior.jpg";
 import lookBridal from "@/assets/look-bridal.jpg";
 import lookKorean from "@/assets/look-korean.jpg";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/lib/auth-context";
+import { getProfile } from "@/api/profile";
+import { getUserBookings } from "@/api/bookings";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -16,7 +20,65 @@ export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
 });
 
+interface Booking {
+  id: string;
+  salonName: string;
+  service: string;
+  date: string;
+  time: string;
+  status: string;
+}
+
+interface Profile {
+  fullName: string;
+  rewardPoints: number;
+  beautyProfile: {
+    skinTone: string;
+    hairType: string;
+    faceShape: string;
+    preferredServices: string[];
+    locality: string;
+    budget: string;
+  };
+}
+
+const STATIC_BOOKINGS = [
+  { id: "1", date: "Sat 28 Jun", time: "11:00 AM", salonName: "Atelier Rose · Indiranagar", service: "Hair Spa + Cut", status: "confirmed" },
+  { id: "2", date: "Fri 4 Jul", time: "5:30 PM", salonName: "Gloss Studio · Jayanagar", service: "Gel Manicure", status: "confirmed" },
+];
+
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 function DashboardPage() {
+  const { user, isLoggedIn } = useAuth();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+
+  useEffect(() => {
+    if (!isLoggedIn || !user) return;
+
+    setLoadingProfile(true);
+    getProfile({ data: { userId: user.id } })
+      .then((p) => setProfile(p))
+      .catch(() => setProfile(null))
+      .finally(() => setLoadingProfile(false));
+
+    getUserBookings({ data: { userId: user.id } })
+      .then((b) => setBookings(b))
+      .catch(() => setBookings([]));
+  }, [isLoggedIn, user]);
+
+  const displayName = profile?.fullName?.split(" ")[0] ?? user?.fullName?.split(" ")[0] ?? "Guest";
+  const rewardPoints = profile?.rewardPoints ?? user?.rewardPoints ?? 0;
+  const beautyProfile = profile?.beautyProfile;
+  const displayBookings = bookings.length > 0 ? bookings : STATIC_BOOKINGS;
+
   return (
     <SiteLayout>
       <section className="px-6 pt-10 pb-20">
@@ -25,8 +87,15 @@ function DashboardPage() {
           <div className="glass-panel rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-6">
             <img src={heroPortrait} alt="Profile" className="size-20 rounded-full object-cover border-4 border-white" />
             <div className="flex-1 text-center sm:text-left">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-brand-rose-deep">Good evening</span>
-              <h1 className="font-serif text-3xl sm:text-4xl mt-1">Hello, Riya 🌸</h1>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-brand-rose-deep">{getGreeting()}</span>
+              {loadingProfile ? (
+                <div className="flex items-center gap-2 mt-1">
+                  <Loader2 className="size-5 animate-spin text-brand-rose-deep" />
+                  <span className="text-text-main/50 text-sm">Loading your profile…</span>
+                </div>
+              ) : (
+                <h1 className="font-serif text-3xl sm:text-4xl mt-1">Hello, {displayName} 🌸</h1>
+              )}
               <p className="text-sm text-text-main/60">3 new looks matched your profile this week.</p>
             </div>
             <Link to="/ai-consultant" className="bg-text-main text-white px-5 py-3 rounded-full text-sm font-semibold flex items-center gap-2">
@@ -39,11 +108,11 @@ function DashboardPage() {
             <div className="glass-card rounded-3xl p-6 lg:col-span-1">
               <div className="text-[10px] font-bold uppercase tracking-widest text-brand-rose-deep mb-3">Your AI Profile</div>
               <ul className="space-y-3 text-sm">
-                <Row label="Face shape" value="Heart" />
-                <Row label="Skin tone" value="Warm Honey" />
-                <Row label="Hair texture" value="Wavy 2B" />
-                <Row label="Locality" value="Indiranagar" />
-                <Row label="Budget" value="₹1,000–₹3,000" />
+                <Row label="Face shape" value={beautyProfile?.faceShape || "Heart"} />
+                <Row label="Skin tone" value={beautyProfile?.skinTone || "Warm Honey"} />
+                <Row label="Hair texture" value={beautyProfile?.hairType || "Wavy 2B"} />
+                <Row label="Locality" value={beautyProfile?.locality || "Indiranagar"} />
+                <Row label="Budget" value={beautyProfile?.budget || "₹1,000–₹3,000"} />
               </ul>
               <Link to="/signup" className="block mt-5 text-xs font-bold uppercase tracking-wider text-brand-rose-deep">Edit profile →</Link>
             </div>
@@ -57,22 +126,22 @@ function DashboardPage() {
                 <Link to="/explore" className="text-xs text-text-main/60">View all</Link>
               </div>
               <div className="space-y-3">
-                {[
-                  { date: "Sat 28 Jun", time: "11:00 AM", salon: "Atelier Rose · Indiranagar", svc: "Hair Spa + Cut" },
-                  { date: "Fri 4 Jul", time: "5:30 PM", salon: "Gloss Studio · Jayanagar", svc: "Gel Manicure" },
-                ].map((b) => (
-                  <div key={b.salon} className="flex items-center gap-4 p-4 bg-white/70 rounded-2xl border border-text-main/5">
+                {displayBookings.slice(0, 3).map((b) => (
+                  <div key={b.id} className="flex items-center gap-4 p-4 bg-white/70 rounded-2xl border border-text-main/5">
                     <div className="text-center min-w-16">
-                      <div className="font-serif text-lg leading-none">{b.date.split(" ")[1]}</div>
+                      <div className="font-serif text-lg leading-none">{b.date.split(" ")[1] ?? b.date}</div>
                       <div className="text-[10px] uppercase tracking-widest text-text-main/50 mt-1">{b.date.split(" ")[0]}</div>
                     </div>
                     <div className="flex-1">
-                      <div className="font-medium">{b.svc}</div>
-                      <div className="text-xs text-text-main/60 flex items-center gap-1"><MapPin className="size-3" /> {b.salon}</div>
+                      <div className="font-medium">{b.service}</div>
+                      <div className="text-xs text-text-main/60 flex items-center gap-1"><MapPin className="size-3" /> {b.salonName}</div>
                     </div>
                     <div className="text-sm font-mono">{b.time}</div>
                   </div>
                 ))}
+                {displayBookings.length === 0 && (
+                  <p className="text-sm text-text-main/50 text-center py-4">No upcoming bookings. <Link to="/salons" className="text-brand-rose-deep font-semibold">Book now →</Link></p>
+                )}
               </div>
             </div>
 
@@ -93,10 +162,10 @@ function DashboardPage() {
             <div className="rounded-3xl p-6 bg-gradient-to-br from-brand-rose to-brand-rose-deep text-white shadow-xl">
               <Gift className="size-6 mb-3" />
               <div className="text-[10px] font-bold uppercase tracking-widest opacity-80">Glow Rewards</div>
-              <div className="font-serif text-4xl mt-1">2,450 pts</div>
-              <p className="text-xs text-white/80 mt-1">550 points to unlock Gold tier</p>
+              <div className="font-serif text-4xl mt-1">{rewardPoints.toLocaleString()} pts</div>
+              <p className="text-xs text-white/80 mt-1">{Math.max(0, 3000 - rewardPoints)} points to unlock Gold tier</p>
               <div className="h-1 w-full bg-white/20 rounded-full mt-3 overflow-hidden">
-                <div className="h-full bg-white w-[81%]" />
+                <div className="h-full bg-white" style={{ width: `${Math.min(100, (rewardPoints / 3000) * 100)}%` }} />
               </div>
               <Link to="/offers" className="inline-flex items-center mt-5 text-xs font-bold uppercase tracking-wider bg-white text-text-main px-4 py-2 rounded-full">
                 Browse rewards →
@@ -140,7 +209,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <li className="flex justify-between items-center py-2 border-b border-text-main/5 last:border-0">
       <span className="text-text-main/60">{label}</span>
-      <span className="font-medium">{value}</span>
+      <span className="font-medium">{value || "—"}</span>
     </li>
   );
 }
